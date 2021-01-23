@@ -1004,6 +1004,12 @@ int open_listenfd(char *port)
     hints.ai_socktype = SOCK_STREAM;             /* Accept connections */
     hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* ... on any IP address */
     hints.ai_flags |= AI_NUMERICSERV;            /* ... using port number */
+
+    /* getaddrinfo는 DNS 서비스.
+     * 첫번째 인자는 도메인 주소
+     * 첫번째 인자를 생략하면 port번호로 hint들을 만족하는 addrinfo주소들을 받을 수 있음
+     * 해당 addrinfo의 정보를 활용하여 소켓의 타입을 정할 수 있음
+     */
     if ((rc = getaddrinfo(NULL, port, &hints, &listp)) != 0) {
         fprintf(stderr, "getaddrinfo failed (port %s): %s\n", port, gai_strerror(rc));
         return -2;
@@ -1012,14 +1018,19 @@ int open_listenfd(char *port)
     /* Walk the list for one that we can bind to */
     for (p = listp; p; p = p->ai_next) {
         /* Create a socket descriptor */
+        /* 어떤 타입의 소켓을 생성할 것인지 확인하고 해당 소켓을 가리키는 소켓 디스크립터를 반환 */
         if ((listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) 
             continue;  /* Socket failed, try the next */
 
         /* Eliminates "Address already in use" error from bind */
+        /* bind 함수에서 오류를 반환하지 않게 하는 초기화 함수 */
         setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,    //line:netp:csapp:setsockopt
                    (const void *)&optval , sizeof(int));
 
         /* Bind the descriptor to the address */
+        /* ip 주소와 소켓 디스크립터를 묶어주는 함수
+         * 소켓에 주소를 할당하고 포트번호를 할당하여 커널에 등록하여 통신할 수 있는 상태로 만듦
+         */
         if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0)
             break; /* Success */
         if (close(listenfd) < 0) { /* Bind failed, try the next */
@@ -1035,9 +1046,10 @@ int open_listenfd(char *port)
         return -1;
 
     /* Make it a listening socket ready to accept connection requests */
+    /* 해당 소켓을 클라이언트의 요청을 받을 수 있도록 close 상태에서 listen상태로 바꿈 */
     if (listen(listenfd, LISTENQ) < 0) {
         close(listenfd);
-	return -1;
+	    return -1;
     }
     return listenfd;
 }
