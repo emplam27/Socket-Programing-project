@@ -155,7 +155,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
         ptr = index(uri, '?');                           //line:netp:parseuri:beginextract
         if (ptr) {
             strcpy(cgiargs, ptr+1);
-            *ptr = '\0';
+            *ptr = '\0';  // null포인터 설정. 문자열의 끝으로 만들어줌
         }
         else 
             strcpy(cgiargs, "");                         //line:netp:parseuri:endextract
@@ -232,6 +232,14 @@ void serve_dynamic(int fd, char *filename, char *cgiargs)
     sprintf(buf, "Server: Tiny Web Server\r\n");
     Rio_writen(fd, buf, strlen(buf));
   
+    /*
+     * 동적 컨텐츠를 로드해야할 시 프로세스를 새로 만들어 작동
+     * Fork: 현재 프로세스의 자삭 프로세스 생성
+     * setenv: key, value 쌍으로 환경변수를 만들어줌. 프로세스에서 사용 가능
+     * Dup2: 프로세스의 fd를 stdout으로 만들어줌
+     * Execve: 자식 프로세스를 실행하고, 모든 작업을 마치면 프로세스를 종료함
+     * Wait: 부모 프로세스는 자식 프로세스가 끝날 때까지 기다림
+     */
     if (Fork() == 0) { /* Child */ //line:netp:servedynamic:fork
         /* Real server would set all CGI vars here */
         setenv("QUERY_STRING", cgiargs, 1); //line:netp:servedynamic:setenv
