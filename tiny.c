@@ -79,7 +79,7 @@ void doit(int fd)
     /* method, uri, version을 읽어 변수에 저장 */
     sscanf(buf, "%s %s %s", method, uri, version);       //line:netp:doit:parserequest
     /* get method가 아니면 오류 */
-    if (strcasecmp(method, "GET")) {                     //line:netp:doit:beginrequesterr
+    if ((strcasecmp(method, "GET")) && (strcasecmp(method, "HEAD"))) {                     //line:netp:doit:beginrequesterr
         clienterror(fd, method, "501", "Not Implemented",
                     "Tiny does not implement this method");
         return;
@@ -186,18 +186,19 @@ void serve_static(int fd, char *filename, int filesize)
     Rio_writen(fd, buf, strlen(buf));
     sprintf(buf, "Content-type: %s\r\n\r\n", filetype);
     Rio_writen(fd, buf, strlen(buf));    //line:netp:servestatic:endserve
-
-    /* Send response body to client */
-    /* 읽기전용으로 파일 열기 */
-    srcfd = Open(filename, O_RDONLY, 0); //line:netp:servestatic:open
-    /* 이미지 파일의 경우에는 빠른 속도를 위해 메모리에 파일 메핑 */
-    srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); //line:netp:servestatic:mmap
-    /* 파일 열기 닫기 */
-    Close(srcfd);                       //line:netp:servestatic:close
-    /* fd에 파일 넣기 */
-    Rio_writen(fd, srcp, filesize);     //line:netp:servestatic:write
-    /* 메모리 메핑 해제 */
-    Munmap(srcp, filesize);             //line:netp:servestatic:munmap
+    if(!(strcasecmp(method, "GET"))){
+        /* Send response body to client */
+        /* 읽기전용으로 파일 열기 */
+        srcfd = Open(filename, O_RDONLY, 0); //line:netp:servestatic:open
+        /* 이미지 파일의 경우에는 빠른 속도를 위해 메모리에 파일 메핑 */
+        srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); //line:netp:servestatic:mmap
+        /* 파일 열기 닫기 */
+        Close(srcfd);                       //line:netp:servestatic:close
+        /* fd에 파일 넣기 */
+        Rio_writen(fd, srcp, filesize);     //line:netp:servestatic:write
+        /* 메모리 메핑 해제 */
+        Munmap(srcp, filesize);             //line:netp:servestatic:munmap
+    }
 }
 
 /*
@@ -213,6 +214,8 @@ void get_filetype(char *filename, char *filetype)
 	    strcpy(filetype, "image/png");
     else if (strstr(filename, ".jpg"))
 	    strcpy(filetype, "image/jpeg");
+    else if(strstr(filetype, "video/mp4"))
+        strcpy(filetype, "video/mp4");
     else
 	    strcpy(filetype, "text/plain");
 }  
